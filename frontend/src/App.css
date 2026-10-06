@@ -1,0 +1,18 @@
+.chart-section {
+  background: #0d2036;
+  border: 1px solid #1d4968;
+  border-radius: 14px;
+  padding: 25px;
+  margin-bottom: 30px;
+}
+
+.chart-section h2 {
+  margin-bottom: 20px;
+}
+
+.chart-container {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 20px;
+  min-height: 350px;
+}
