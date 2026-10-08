@@ -20,13 +20,15 @@ ChartJS.register(
   Legend
 );
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 function App() {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAlerts = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/alerts");
+      const response = await fetch(`${API_URL}/api/alerts`);
       const data = await response.json();
 
       setAlerts(data);
@@ -94,7 +96,7 @@ function App() {
       <header className="topbar">
 
         <div>
-          <h1>≡ƒ¢í∩╕Å CyberShield</h1>
+          <h1>CyberShield</h1>
 
           <p>
             Real-Time Security Monitoring System
@@ -126,7 +128,7 @@ function App() {
           <div className="card">
 
             <div className="card-icon">
-              ≡ƒÜ¿
+              
             </div>
 
             <div>
@@ -145,7 +147,7 @@ function App() {
           <div className="card">
 
             <div className="card-icon">
-              ΓÜá∩╕Å
+              
             </div>
 
             <div>
@@ -164,7 +166,7 @@ function App() {
           <div className="card">
 
             <div className="card-icon">
-              ≡ƒ¢í∩╕Å
+              
             </div>
 
             <div>
@@ -246,7 +248,7 @@ function App() {
             <div className="no-alerts">
 
               <span>
-                Γ£à
+                ✅
               </span>
 
               <p>
@@ -304,7 +306,7 @@ function App() {
 
                         <span className="badge">
 
-                          ≡ƒÜ¿ {alert.alertType}
+                           {alert.alertType}
 
                         </span>
 
@@ -372,7 +374,7 @@ function App() {
             <div className="threat-box">
 
               <div className="threat-icon">
-                ≡ƒÜ¿
+                
               </div>
 
 
@@ -418,7 +420,7 @@ function App() {
 
       <footer>
 
-        CyberShield Security Monitoring System ┬⌐ 2026
+        CyberShield Security Monitoring System © 2026
 
       </footer>
 
