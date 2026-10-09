@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import {
   Chart as ChartJS,
@@ -20,410 +21,326 @@ ChartJS.register(
   Legend
 );
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
 
 function App() {
+  const [mode, setMode] = useState("login");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loggedInUser, setLoggedInUser] = useState("");
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchAlerts = async () => {
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    setBusy(true);
+
     try {
-      const response = await fetch(`${API_URL}/api/alerts`);
+      const endpoint =
+        mode === "register" ? "/api/register" : "/api/login";
+
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+
       const data = await response.json();
 
-      setAlerts(data);
-      setLoading(false);
-    } catch (error) {
-      console.log("Unable to fetch alerts:", error);
+      if (!response.ok) {
+        setError(data.message || "Request failed. Please try again.");
+        return;
+      }
+
+      if (mode === "register") {
+        setMessage("Account created successfully! Please log in.");
+        setMode("login");
+        setPassword("");
+      } else {
+        setLoggedInUser(data.username || username);
+        setPassword("");
+      }
+    } catch {
+      setError("Cannot connect to the server. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function fetchAlerts() {
+    try {
+      const response = await fetch(`${API_URL}/api/alerts`);
+
+      if (!response.ok) {
+        throw new Error("Unable to load alerts");
+      }
+
+      const data = await response.json();
+      setAlerts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Alert loading error:", err);
+    } finally {
       setLoading(false);
     }
-  };
+  }
 
   useEffect(() => {
+    if (!loggedInUser) return;
+
     fetchAlerts();
+    const timer = setInterval(fetchAlerts, 5000);
 
-    const interval = setInterval(fetchAlerts, 5000);
+    return () => clearInterval(timer);
+  }, [loggedInUser]);
 
-    return () => clearInterval(interval);
-  }, []);
+  function logout() {
+    setLoggedInUser("");
+    setUsername("");
+    setPassword("");
+    setAlerts([]);
+    setLoading(true);
+    setMode("login");
+    setError("");
+    setMessage("");
+  }
 
-  const totalAlerts = alerts.length;
+  if (!loggedInUser) {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <div className="auth-logo">🛡️</div>
+          <h1>CyberShield</h1>
+          <p className="auth-subtitle">
+            Real-Time Security Monitoring System
+          </p>
+
+          <div className="auth-tabs">
+            <button
+              className={mode === "login" ? "active" : ""}
+              onClick={() => {
+                setMode("login");
+                setError("");
+                setMessage("");
+              }}
+            >
+              Login
+            </button>
+
+            <button
+              className={mode === "register" ? "active" : ""}
+              onClick={() => {
+                setMode("register");
+                setError("");
+                setMessage("");
+              }}
+            >
+              Register
+            </button>
+          </div>
+
+          <h2>
+            {mode === "login" ? "Welcome Back" : "Create Account"}
+          </h2>
+          <p className="auth-hint">
+            {mode === "login"
+              ? "Log in to access your security dashboard."
+              : "Register to create your CyberShield account."}
+          </p>
+
+          <form onSubmit={handleSubmit}>
+            <label htmlFor="username">Username</label>
+            <input
+              id="username"
+              type="text"
+              placeholder="Enter your username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              minLength={3}
+              required
+              autoComplete="username"
+            />
+
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              minLength={8}
+              required
+              autoComplete={
+                mode === "login" ? "current-password" : "new-password"
+              }
+            />
+
+            {error && <p className="auth-error">{error}</p>}
+            {message && <p className="auth-success">{message}</p>}
+
+            <button
+              className="auth-submit"
+              type="submit"
+              disabled={busy}
+            >
+              {busy
+                ? "Please wait..."
+                : mode === "login"
+                  ? "Login Securely"
+                  : "Create Account"}
+            </button>
+          </form>
+
+          <p className="auth-footer">
+            🔒 Passwords are protected with bcrypt hashing.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const totalAttempts = alerts.reduce(
-    (total, alert) => total + alert.failedAttempts,
+    (total, alert) => total + Number(alert.failedAttempts || 0),
     0
   );
-
-  const latestAlert = alerts.length > 0 ? alerts[0] : null;
 
   const chartData = {
     labels: alerts.map((alert) =>
       new Date(alert.timestamp).toLocaleTimeString()
     ),
-
     datasets: [
       {
         label: "Failed Login Attempts",
         data: alerts.map((alert) => alert.failedAttempts),
-        borderWidth: 1
+        backgroundColor: "#06b6d4"
       }
     ]
   };
 
-  const chartOptions = {
-    responsive: true,
-    plugins: {
-      legend: {
-        display: true
-      },
-      title: {
-        display: true,
-        text: "Brute-Force Attack Monitoring"
-      }
-    },
-    scales: {
-      y: {
-        beginAtZero: true
-      }
-    }
-  };
-
   return (
     <div className="dashboard">
-
-      {/* HEADER */}
-
       <header className="topbar">
-
         <div>
-          <h1>CyberShield</h1>
-
-          <p>
-            Real-Time Security Monitoring System
-          </p>
+          <h1>🛡️ CyberShield</h1>
+          <p>Real-Time Security Monitoring System</p>
         </div>
 
-        <div className="status">
-
-          <span className="status-dot"></span>
-
-          System Online
-
+        <div className="header-actions">
+          <span className="status">
+            <span className="status-dot"></span>
+            System Online
+          </span>
+          <span className="welcome-user">Hi, {loggedInUser}</span>
+          <button className="logout-button" onClick={logout}>
+            Logout
+          </button>
         </div>
-
       </header>
 
-
-      {/* MAIN CONTENT */}
-
       <main className="content">
-
         <h2>Security Dashboard</h2>
 
-
-        {/* STATISTICS */}
-
         <div className="cards">
-
           <div className="card">
-
-            <div className="card-icon">
-              
-            </div>
-
+            <div className="card-icon">🔐</div>
             <div>
-
               <p>Total Alerts</p>
-
-              <h3>
-                {totalAlerts}
-              </h3>
-
+              <h3>{alerts.length}</h3>
             </div>
-
           </div>
 
-
           <div className="card">
-
-            <div className="card-icon">
-              
-            </div>
-
+            <div className="card-icon">⚡</div>
             <div>
-
               <p>Failed Attempts</p>
-
-              <h3>
-                {totalAttempts}
-              </h3>
-
+              <h3>{totalAttempts}</h3>
             </div>
-
           </div>
-
 
           <div className="card">
-
-            <div className="card-icon">
-              
-            </div>
-
+            <div className="card-icon">🛡️</div>
             <div>
-
               <p>Threat Status</p>
-
-              <h3
-                className={
-                  totalAlerts > 0
-                    ? "danger"
-                    : "safe"
-                }
-              >
-                {totalAlerts > 0
-                  ? "Threat Detected"
-                  : "Secure"}
+              <h3 className={alerts.length ? "danger" : "safe"}>
+                {alerts.length ? "Threat Detected" : "Secure"}
               </h3>
-
             </div>
-
           </div>
-
         </div>
 
-
-        {/* CHART */}
-
         <section className="chart-section">
-
           <h2>Attack Monitoring</h2>
-
           <div className="chart-container">
-
-            {alerts.length > 0 ? (
-
+            {alerts.length ? (
               <Bar
                 data={chartData}
-                options={chartOptions}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: { display: true },
+                    title: {
+                      display: true,
+                      text: "Brute-Force Attack Monitoring"
+                    }
+                  },
+                  scales: { y: { beginAtZero: true } }
+                }}
               />
-
             ) : (
-
-              <p className="no-alerts">
-                No attack data available.
-              </p>
-
+              <p className="no-alerts">No attack data available.</p>
             )}
-
           </div>
-
         </section>
-
-
-        {/* ALERT TABLE */}
 
         <section className="alert-section">
-
           <div className="section-header">
-
-            <h2>
-              Security Alerts
-            </h2>
-
-            <button onClick={fetchAlerts}>
-              Refresh
-            </button>
-
+            <h2>Security Alerts</h2>
+            <button onClick={fetchAlerts}>Refresh</button>
           </div>
 
-
           {loading ? (
-
-            <p className="loading">
-              Loading alerts...
-            </p>
-
+            <p>Loading alerts...</p>
           ) : alerts.length === 0 ? (
-
-            <div className="no-alerts">
-
-              <span>
-                ✅
-              </span>
-
-              <p>
-                No security threats detected.
-              </p>
-
-            </div>
-
+            <p className="no-alerts">No security threats detected.</p>
           ) : (
-
             <div className="table-container">
-
               <table>
-
                 <thead>
-
                   <tr>
-
-                    <th>
-                      Alert Type
-                    </th>
-
-                    <th>
-                      Username
-                    </th>
-
-                    <th>
-                      IP Address
-                    </th>
-
-                    <th>
-                      Failed Attempts
-                    </th>
-
-                    <th>
-                      Message
-                    </th>
-
-                    <th>
-                      Time
-                    </th>
-
+                    <th>Alert Type</th>
+                    <th>Username</th>
+                    <th>IP Address</th>
+                    <th>Attempts</th>
+                    <th>Message</th>
+                    <th>Time</th>
                   </tr>
-
                 </thead>
-
-
                 <tbody>
-
                   {alerts.map((alert) => (
-
                     <tr key={alert._id}>
-
-                      <td>
-
-                        <span className="badge">
-
-                           {alert.alertType}
-
-                        </span>
-
-                      </td>
-
-
-                      <td>
-                        {alert.username}
-                      </td>
-
-
-                      <td>
-                        {alert.ipAddress}
-                      </td>
-
-
-                      <td>
-
-                        <strong>
-                          {alert.failedAttempts}
-                        </strong>
-
-                      </td>
-
-
-                      <td>
-                        {alert.message}
-                      </td>
-
-
-                      <td>
-
-                        {new Date(
-                          alert.timestamp
-                        ).toLocaleString()}
-
-                      </td>
-
+                      <td>{alert.alertType}</td>
+                      <td>{alert.username}</td>
+                      <td>{alert.ipAddress}</td>
+                      <td>{alert.failedAttempts}</td>
+                      <td>{alert.message}</td>
+                      <td>{new Date(alert.timestamp).toLocaleString()}</td>
                     </tr>
-
                   ))}
-
                 </tbody>
-
               </table>
-
             </div>
-
           )}
-
         </section>
-
-
-        {/* LATEST THREAT */}
-
-        {latestAlert && (
-
-          <section className="latest-alert">
-
-            <h2>
-              Latest Threat Detected
-            </h2>
-
-
-            <div className="threat-box">
-
-              <div className="threat-icon">
-                
-              </div>
-
-
-              <div>
-
-                <h3>
-                  Brute-Force Attack
-                </h3>
-
-
-                <p>
-
-                  {latestAlert.failedAttempts}
-                  {" "}
-                  failed login attempts
-                  detected within 1 minute.
-
-                </p>
-
-
-                <p>
-
-                  <strong>
-                    Source IP:
-                  </strong>
-
-                  {" "}
-
-                  {latestAlert.ipAddress}
-
-                </p>
-
-              </div>
-
-            </div>
-
-          </section>
-
-        )}
-
       </main>
 
-
-      <footer>
-
-        CyberShield Security Monitoring System © 2026
-
-      </footer>
-
+      <footer>CyberShield Security Monitoring System © 2026</footer>
     </div>
   );
 }
